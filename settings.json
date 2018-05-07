@@ -1,0 +1,72 @@
+{
+        "general": {
+                "about": "zeShop 1.0 (C) Pixeldog 2018",
+                "siteURL": "localhost:3001",
+                "upload_size_limit": 209715200,
+                "allow_iplocation": true,
+                "language": "eng",
+                "developer_mode": true
+        },
+        "logging": {
+                "console": true,
+                "enabled": true,
+                "daily": true,
+                "location": "logs"
+        },
+        "cors": [
+                "http://localhost:4200",
+                "http://localhost",
+                "null"
+        ],
+        "ssl": {
+                "active": false,
+                "key": "/ssl/server.key",
+                "certificate": "/ssl/server.crt",
+                "port": 3001
+        },
+        "session": {
+                "name": "session",
+                "duration": 300000,
+                "activeDuration": 300000
+        },
+        "mongoDB": {
+                "username": "tomcat",
+                "password": "qwa5ed6",
+                "url": "localhost",
+                "port": 27017,
+                "db": "dbZeshop",
+                "collation": {
+                        "locale": "en",
+                        "strength": 2,
+                        "caseLevel": true,
+                        "caseFirst": "upper",
+                        "numericOrdering": true,
+                        "alternate": "shifted",
+                        "maxVariable": "punct",
+                        "backwards": false
+                }
+        },
+        "nodemailer": {
+                "email_from": "\"Test Message\" <testmessage@testmessage.com>",
+                "host": "mail.smtp2go.com",
+                "port": 2525,
+                "secure": false,
+                "auth": {
+                        "user": "tamas.polgar.pixeldog@gmail.com",
+                        "pass": "toptaltesting"
+                }
+        },
+        "recaptcha": {
+                "host": "www.google.com",
+                "path": "/recaptcha/api/siteverify",
+                "port": 443,
+                "method": "POST",
+                "secret_key": "6LdsXVcUAAAAABCHp6Q8PoSe73Fs_V8EmKj9Na3A",
+                "site_key": "6LdsXVcUAAAAANNiSLVwHy-8iiQw7-tl2_O0x54l",
+                "language": "en",
+                "type": "default",
+                "theme": "light",
+                "size": "normal",
+                "tabindex": "0"
+        }
+}

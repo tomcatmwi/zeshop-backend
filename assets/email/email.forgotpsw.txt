@@ -1,0 +1,7 @@
+Please reset your password.
+
+Copy this URL into your browser:
+
+{{ url }}
+
+In case you forgot your username too, it was: "{{ username }}"

@@ -1,0 +1,102 @@
+<html>
+    <head>
+        <title>Registration</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            
+            body {
+                background-color: #FFFFFF;
+                font-family: Helvetica, Arial, sans-serif;
+                color: #444444;
+                padding: 2em;
+                font-size: 1em;
+                line-height: 0.8;
+            }
+            
+            a {
+                cursor: pointer;
+                text-decoration: none;
+                color: #444499;
+                font-weight: bold;
+            }
+            
+            a:hover {
+                text-decoration: underline;
+            }
+            
+            footer {
+                border-top: 1px solid #ACACAC;
+                font-size: 0.75em;
+                color: #ACACAC;
+                margin-top: 1em;
+                padding-top: 0.5em;
+            }
+            
+            header {
+                border-bottom: 1px solid #ACACAC;
+                color: #ACACAC;
+                font-weight: bold;
+                margin-bottom: 1em;
+                padding-bottom: 0.5em;
+            }
+            
+            header svg {
+                display: inline;
+                vertical-align: middle;
+                margin-right: 1em;
+                width: 3em;
+                height: 3em;
+            }
+            
+            #messagebody {
+              padding: 0.5em 2em 0.5em 2em;
+            }
+           
+            
+        </style>
+    </head>
+    
+    <body>
+      <header>
+        <svg
+           width="22mm"
+           height="22mm"
+           viewBox="0 0 22 22">
+          <g transform="translate(0,-275)">
+            <g transform="matrix(0.26458333,0,0,0.26458333,10.945841,206.72073)">
+              <circle
+                 r="39.901024"
+                 cy="265.45334"
+                 cx="71.720833"
+                 transform="matrix(0.9556962,0,0,0.9556962,-68.338633,45.945458)"
+                 id="path3017"
+                 style="fill:#da1785;fill-opacity:1;fill-rule:nonzero;stroke:none" />
+              <path
+                 id="rect2996"
+                 d="M 19.6875,279.59375 V 290.375 h 10.78125 v -10.78125 z m 0,10.78125 H 8.9375 -1.84375 -12.625 v 10.78125 10.75 h 10.78125 v -10.75 H 8.9375 v 10.75 h 10.75 v -10.75 z"
+                 style="fill:#ffffff;fill-opacity:1;fill-rule:nonzero;stroke:none" />
+              <rect
+                 y="279.59546"
+                 x="8.9281082"
+                 height="10.774959"
+                 width="10.774959"
+                 id="rect3008"
+                 style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none" />
+            </g>
+          </g>
+        </svg>
+      
+        <span>Some Fancy Name For the App</span>
+      </header>
+      
+      <section id="messagebody">
+          {{ body }}
+      </section>
+      
+      <footer>
+          <p>&copy; Copyright info</p>
+          <p>This is an automatically generated message. Please don't respond.</p>
+      </footer>
+    </body>
+</html>

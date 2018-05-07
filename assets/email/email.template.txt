@@ -1,0 +1,8 @@
+Some Fancy Name for the Application
+______________________
+
+{{ body }}
+______________________
+
+(C) Copyright info
+This is an automatically generated message. Please don't respond.

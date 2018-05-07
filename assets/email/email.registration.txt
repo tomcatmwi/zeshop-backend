@@ -1,0 +1,10 @@
+Thank you for registering!
+
+Please visit this link to confirm your registration:
+
+{{ url }}
+
+(You can select and copy-paste it into your browser's address bar.)
+
+After visiting the link you can immediately log in with the username and password you've selected during registration.
+If you forgot either, just use our password reminder function.
