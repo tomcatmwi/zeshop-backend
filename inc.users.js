@@ -5,19 +5,28 @@ app.post('/login', (req, res) => {
     general.getpostdata(req, (postdata) => {
         general.log('Login attempt. Username: ' + postdata.username, req);
 
-        //  verify captcha
-        recaptcha.checkrecaptcha(postdata.captcha, req)
-        .then((result) => {
+        let login = new Promise((resolve, reject) => {
+
+            //  verify captcha
+            if (settings.recaptcha.active) {
+                recaptcha.checkrecaptcha(postdata.captcha, req)
+                    .then((result) => {
+                        resolve();
+                    }).catch((error) => {
+                        reject('Invalid captcha: ' + error['error-codes'][0]);
+                    });
+            } else resolve();
+
+        }).then(result => {
 
             general.MongoDB_connect(settings.mongoDB, db => {
 
                 if (postdata.nomd5)
                     postdata.password = md5.md5(postdata.password);
-    
+
                 //  verify the login
-    
+
                 db.collection('users').aggregate([
-    
                     {
                         $match:
                             {
@@ -28,7 +37,7 @@ app.post('/login', (req, res) => {
                                 ]
                             }
                     },
-    
+
                     {
                         $project: {
                             '_id': 1,
@@ -44,41 +53,41 @@ app.post('/login', (req, res) => {
                             }
                         },
                     }
-    
+
                 ],
-    
+
                     { collation: settings.mongoDB.collation },
                     (err, docs) => {
                         db.close();
-    
+
                         if (!err && docs.length > 0) {
-    
+
                             //  if user is unconfirmed, no login
                             if (docs[0].level == 0) {
                                 general.log('Unconfirmed user attempted to log in: ' + docs[0].name, req);
                                 res.json({ result: 'error', message: 'Your registration has not been confirmed yet. Please click the confirmation link in the e-mail we sent.' });
                                 return false;
                             }
-    
+
                             //  save user to session
                             req.session.user = docs[0]._id;
                             req.session.name = docs[0].name;
                             req.session.email = docs[0].email;
                             req.session.level = docs[0].level;
-    
+
                             general.log('Successful login: ' + docs[0].name, req);
                             res.json({ result: 'success', message: 'Login successful.', data: docs[0] });
                         } else {
                             general.log('Unsuccessful login: ' + postdata.username, req);
                             res.json({ result: 'error', message: 'Invalid credentials.' });
                         }
-    
+
                     });
-                //            });   unremark this row to reinstall removal of level 0 users every 24 hours!
             });
-    
-        }).catch((error) => {
-            res.json({ result: 'error', message: 'Invalid captcha.' });
+
+        }).catch(error => {
+            general.log('Invalid login: Captcha error!');
+            res.json({ result: 'error', message: error });
         });
 
     });
@@ -299,74 +308,71 @@ app.post('/users', (req, res) => {
 
         general.MongoDB_connect(settings.mongoDB, db => {
 
-            if (update) {
+            let updateUser = new Promise((resolve, reject) => {
 
-                //  get user to be modified
-                //  if it doesn't exist, exit
-                //  check if current user has the right to modify this user
-                //  user should be level > 1 or it should be his own record
+                if (update) {
 
-                if (!general.checklogin(res, req)) return false;
+                    //  get user to be modified
+                    //  if it doesn't exist, exit
+                    //  check if current user has the right to modify this user
+                    //  user should be level > 1 or it should be his own record
 
-                if (postdata._id != req.session.user && req.session.userLevel <= 1) {
-                    res.json({ result: 'error', message: 'You can\'t modify this user.' });
-                    return false;
-                }
+                    if (postdata._id != req.session.user && req.session.userLevel <= 1) {
+                        reject('You can\'t modify this user.');
+                    }
 
-                if (postdata.passwordChanged)
+                    if (postdata.passwordChanged)
+                        postdata.password = postdata.password_1;
+
+                    delete postdata.passwordChanged;
+                    delete postdata.password_1;
+                    delete postdata.password_2;
+
+                    db.collection('users').findOne(
+                        { _id: finder },
+                        { collation: settings.mongoDB.collation },
+                        (err, docs) => {
+                            if (err || !docs) {
+                                if (err)
+                                    reject(err.message)
+                                else
+                                    reject('This user doesn\'t exist.');
+                            } else
+                                resolve(docs);
+                        });
+
+                } else {
+
+                    //  if it's a new user...
+                    //  generate new ObjectID and set registration date to UTC
+
+                    finder = new ObjectId();
+                    postdata.registered = general.getUTCDate();
+                    postdata.level = 0;
                     postdata.password = postdata.password_1;
 
-                delete postdata.passwordChanged;
-                delete postdata.password_1;
-                delete postdata.password_2;
+                    delete postdata.passwordChanged;
+                    delete postdata.password_1;
+                    delete postdata.password_2;
 
-                db.collection('users').findOne(
-                    { _id: finder },
-                    { collation: settings.mongoDB.collation },
-                    (err, docs) => {
-                        if (err || !docs) {
+                    //  check if the e-mail is already in use
+
+                    db.collection('users').findOne(
+                        { email: postdata.email },
+                        { collation: settings.mongoDB.collation },
+                        (err, docs) => {
                             if (err)
-                                res.json({ result: 'error', message: err.message })
+                                reject(err.message);
+                            else if (!docs)
+                                resolve(null)
                             else
-                                res.json({ result: 'error', message: 'This user doesn\'t exist.' });
-                        } else
-                            updateUser(docs);
-                    });
+                                reject('This e-mail address is already in use.');
+                        });
+                }
 
-            } else {
+            }).then((user) => {
 
-                //  if it's a new user...
-                //  generate new ObjectID and set registration date to UTC
-
-                finder = new ObjectId();
-                postdata.registered = general.getUTCDate();
-                postdata.level = 0;
-                postdata.password = postdata.password_1;
-
-                delete postdata.passwordChanged;
-                delete postdata.password_1;
-                delete postdata.password_2;
-
-                //  check if the e-mail is already in use
-
-                db.collection('users').findOne(
-                    { email: postdata.email },
-                    { collation: settings.mongoDB.collation },
-                    (err, docs) => {
-                        if (err || !docs) {
-                            if (err)
-                                res.json({ result: 'error', message: err.message })
-                            else
-                                updateUser(null);
-                        } else
-                            res.json({ result: 'error', message: 'This e-mail address is already in use.' });
-                    });
-
-            }
-
-            //  do actual update / add record
-
-            updateUser = (user) => {
+                //  do actual update / add record
 
                 if (update)
                     postdata = { $set: postdata }
@@ -383,9 +389,9 @@ app.post('/users', (req, res) => {
                         if (!err) {
                             res.json({ result: 'success', data: { id: finder } });
                             if (update)
-                                general.log('User modified: ' + user._id + ' ' + user.title+' '+user.firstname+' '+user.lastname, req);
+                                general.log('User modified: ' + user._id + ' ' + user.title + ' ' + user.firstname + ' ' + user.lastname, req);
                             else
-                                general.log('New user added: ' + finder + ' ' + postdata.title+' '+postdata.firstname+' '+postdata.lastname, req);
+                                general.log('New user added: ' + finder + ' ' + postdata.title + ' ' + postdata.firstname + ' ' + postdata.lastname, req);
 
                             //  send confirmation e-mail
 
@@ -401,7 +407,7 @@ app.post('/users', (req, res) => {
                                         html = data.toString();
                                         html = html.replace(/{{ url }}/g, settings.general.siteURL + '/confirmreg/' + finder);
                                         html = html.replace(/{{ confirmCode }}/g, finder);
-                                        html = html.replace(/{{ name }}/g, postdata.title+' '+postdata.firstname+' '+postdata.lastname);
+                                        html = html.replace(/{{ name }}/g, postdata.title + ' ' + postdata.firstname + ' ' + postdata.lastname);
                                         html = html.replace(/{{ email }}/g, postdata.email);
                                         html = email_html_template.replace('{{ body }}', html);
 
@@ -413,7 +419,7 @@ app.post('/users', (req, res) => {
                                                 text = data.toString();
                                                 text = text.replace(/{{ url }}/g, settings.general.siteURL + '/confirmreg/' + finder);
                                                 text = text.replace(/{{ confirmCode }}/g, finder);
-                                                text = text.replace(/{{ name }}/g, postdata.title+' '+postdata.firstname+' '+postdata.lastname);
+                                                text = text.replace(/{{ name }}/g, postdata.title + ' ' + postdata.firstname + ' ' + postdata.lastname);
                                                 text = text.replace(/{{ email }}/g, postdata.email);
                                                 text = email_text_template.replace('{{ body }}', text);
 
@@ -425,10 +431,16 @@ app.post('/users', (req, res) => {
                             }
 
                         } else {
+                            general.log('Create/modify user failed: ' + err.message, req);
                             res.json({ result: 'error', message: err.message });
                         }
                     });
-            }
+
+            }).catch((error) => {
+                general.log('Create/modify user failed: ' + error, req);
+                res.json({ result: 'error', message: error });
+            });
+
 
         });
     });

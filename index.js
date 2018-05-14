@@ -125,6 +125,7 @@ app.get('/', (req, res) => {
 //  ------------------------[ REQUIRE MODULES ] ------------------------
 
 require('./inc.interfaces');
-require('./inc.users');
 require('./inc.settings');
+require('./inc.users');
+require('./inc.messages');
 require('./inc.development');

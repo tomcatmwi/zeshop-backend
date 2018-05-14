@@ -4,8 +4,9 @@
                 "siteURL": "localhost:3001",
                 "upload_size_limit": 209715200,
                 "allow_iplocation": true,
-                "language": "eng",
-                "developer_mode": true
+                "language": "en-ca",
+                "developer_mode": false,
+                "login": false
         },
         "logging": {
                 "console": true,
@@ -26,8 +27,8 @@
         },
         "session": {
                 "name": "session",
-                "duration": 300000,
-                "activeDuration": 300000
+                "duration": 600000,
+                "activeDuration": 600000
         },
         "mongoDB": {
                 "username": "tomcat",
@@ -57,6 +58,7 @@
                 }
         },
         "recaptcha": {
+                "active": true,
                 "host": "www.google.com",
                 "path": "/recaptcha/api/siteverify",
                 "port": 443,

@@ -102,15 +102,21 @@ const self = module.exports = {
 
   checklogin: (res, req, level = 1) => {
 
-    //    self.log('WARNING: Login session checking DISABLED !!!');
-    //    return true;
+    if (settings.general.login == false) {
+      self.log('WARNING: Server-side login checking is DISABLED!');
+      return true;
+    }
 
     if (typeof req.session === 'undefined' || typeof req.session.user === 'undefined') {
       res.json({ result: 'error', message: 'You are not logged in.', login: false });
       return false;
     }
 
-    if (req.session.level < level) return false;
+    if (req.session.level < level) {
+      res.json({ result: 'error', message: 'You don\'t have the necessary level to perform this operation.', login: false });
+      return false;
+    }
+
     return true;
   },
 

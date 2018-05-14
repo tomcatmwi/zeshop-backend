@@ -2,7 +2,7 @@
 
 app.get('/settings/:id?', (req, res) => {
 
-    //    if (!general.checklogin(res, req)) return false;
+    if (!general.checklogin(res, req, 2)) return false;
 
     if (req.params.id) {
         finder = general.makeFinder(res, req.params.id, false);
@@ -77,7 +77,7 @@ app.get('/settings/:id?', (req, res) => {
 
 app.post('/settings', (req, res) => {
 
-    if (!general.checklogin(res, req)) return false;
+    if (!general.checklogin(res, req, 2)) return false;
     general.getpostdata(req, (postdata) => {
 
         finder = general.makeFinder(res, postdata._id, false);
@@ -97,7 +97,10 @@ app.post('/settings', (req, res) => {
                 err => {
                     db.close();
                     if (!err) {
-                        general.log('New setting added: ' + postdata.token, req);
+                        if (postdata.id == 0)
+                            general.log('New setting added: ' + postdata.token, req)
+                        else
+                            general.log('Setting added modified: ' + postdata.token, req)
                         res.json({ result: 'success' });
                     } else {
                         res.json({ result: 'error', message: err.message });
@@ -128,7 +131,7 @@ app.delete('/settings/:id?', (req, res) => {
                     doDelete(docs);
             });
 
-        doDelete = (docs) => {
+        let doDelete = (docs) => {
             db.collection('settings').deleteOne(
                 { _id: finder },
                 { collation: settings.mongoDB.collation },
@@ -185,7 +188,7 @@ app.get('/settinggroups/:id?', (req, res) => {
 
 app.post('/settinggroups', (req, res) => {
 
-    if (!general.checklogin(res, req)) return false;
+    if (!general.checklogin(res, req, 2)) return false;
     general.getpostdata(req, (postdata) => {
 
         finder = general.makeFinder(res, postdata._id, false);
@@ -203,7 +206,10 @@ app.post('/settinggroups', (req, res) => {
                 err => {
                     db.close();
                     if (!err) {
-                        general.log('New setting group added: ' + postdata.name, req);
+                        if (postdata._id == 0)
+                            general.log('New setting group added: ' + postdata.name, req)
+                        else
+                            general.log('Setting group modified: ' + postdata.name, req)
                         res.json({ result: 'success' });
                     } else {
                         res.json({ result: 'error', message: err.message });
@@ -217,7 +223,7 @@ app.post('/settinggroups', (req, res) => {
 
 app.delete('/settinggroups/:id?', (req, res) => {
 
-    if (!general.checklogin(res, req)) return false;
+    if (!general.checklogin(res, req, 2)) return false;
     finder = general.makeFinder(res, req.params.id, true);
     if (!finder) return false;
 
@@ -238,6 +244,7 @@ app.delete('/settinggroups/:id?', (req, res) => {
                         err => {
                             db.close();
                             if (!err) {
+                                general.log('Setting group deleted: ' + docs.name, req);
                                 res.json({ result: 'success' });
                             } else {
                                 res.json({ result: 'error', message: err.message });
@@ -254,6 +261,7 @@ app.delete('/settinggroups/:id?', (req, res) => {
 app.get('/recaptcha', (req, res) => {
 
     data = {
+        "active": settings.recaptcha.active,
         "site_key": settings.recaptcha.site_key,
         "language": settings.recaptcha.language,
         "type": settings.recaptcha.type,
