@@ -31,24 +31,25 @@ templates = {
 
     "message": {
         "date": 1524225600,
-        "sender_id": 0,
-        "sender_name": "Unknown Sender",
-        "sender_email": "unknown@zeshop.com",
-        "order": 0,
-        "subject": "No Subject",
-        "body": "The quick brown fox jumped over the lazy dog.",
-        "folder": 0,
-        "replies": [
-            {
-                "user": 0,
-                "name": "Unknown",
-                "email": "unknown@zeshop.com",
-                "date": 1524225600,
-                "body": ""
-            }
-        ],
-        
+        "sender_id": null,
+        "order_id": null,
+        "folder_id": null,
+        "replied": false,
+        "name": "Unknown Sender",
+        "email": "unknown@zeshop.com",
+        "phone_country": "CA",
+        "phone_district": "000",
+        "phone": "0000000",
+        "subject": "No subject",
+        "body": "",
+        "ip": "127.0.0.1"
+    },
 
+    "autoreply": {
+        "subject": "",
+        "body": "",
+        "description": "",
+        "priority": 0
     }
 
 }

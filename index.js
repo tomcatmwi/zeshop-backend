@@ -18,6 +18,7 @@ mongodb = require('mongodb');
 ObjectId = require('mongodb').ObjectId;
 nodemailer = require('nodemailer');
 requestIp = require('request-ip');
+sanitizeHTML = require('sanitize-html');
 
 //  load custom modules
 

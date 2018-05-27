@@ -70,5 +70,17 @@
                 "theme": "light",
                 "size": "normal",
                 "tabindex": "0"
+        },
+        "sanitizeHTML": {
+                "allowedTags": ["b", "i", "em", "strong", "a", "img", "br", "p"],
+                "allowedAttributes": {
+                        "a": ["href", "target"],
+                        "img": ["src"]
+                },
+                "nonTextTags": ["style", "script", "textarea", "noscript", "div"],
+                "allowedIframeHostnames": [],
+                "parser": {
+                        "lowerCaseTags": true
+                }
         }
 }

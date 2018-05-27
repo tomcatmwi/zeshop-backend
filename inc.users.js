@@ -5,17 +5,20 @@ app.post('/login', (req, res) => {
     general.getpostdata(req, (postdata) => {
         general.log('Login attempt. Username: ' + postdata.username, req);
 
-        let login = new Promise((resolve, reject) => {
+        new Promise((resolve, reject) => {
 
             //  verify captcha
-            if (settings.recaptcha.active) {
-                recaptcha.checkrecaptcha(postdata.captcha, req)
-                    .then((result) => {
-                        resolve();
-                    }).catch((error) => {
-                        reject('Invalid captcha: ' + error['error-codes'][0]);
-                    });
-            } else resolve();
+        if (settings.recaptcha.active) {
+        
+            recaptcha.checkrecaptcha(postdata.captcha, req)
+            .then((result) => {
+                resolve();
+            }).catch((error) => {
+                reject('Invalid captcha: ' + error['error-codes'][0]);
+            });
+        
+        } else
+            resolve();
 
         }).then(result => {
 
@@ -114,6 +117,9 @@ app.get('/users/:id?', (req, res) => {
     if (typeof req.query.searchText == 'undefined') req.query.searchText = '';
 
     //  if a single id is specified...
+
+    if (req.params.id === 'current')
+        req.params.id = req.session.user;
 
     if (req.params.id) {
         finder = general.makeFinder(res, req.params.id, true);

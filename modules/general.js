@@ -80,9 +80,27 @@ const self = module.exports = {
   },
 
   //  ---------------------------------------------------------------------------------------------------------------------------------------
-  //  returns HTTP POST data from HTTP request
+  //  sanitizes all strings in a JSON object
+  //  property names specified in noSanitize will be ignored
 
-  getpostdata: (req, callback) => {
+  sanitizeJSON: (obj, stack, noSanitize = ['captcha']) => {
+    for (let property in obj) {
+      if (obj.hasOwnProperty(property)) {
+        if (typeof obj[property] == 'object') {
+          iterate(obj[property], stack + '.' + property);
+        } else if (typeof obj[property] === 'string' && noSanitize.indexOf(property) == -1) {
+          obj[property] = _.trim(obj[property], ' \n');
+          obj[property] = sanitizeHTML(obj[property], settings.sanitizeHTML);
+          obj[property] = obj[property].replace(/\n/ig, '<br />')
+        }
+      }
+    }
+  },
+
+  //  ---------------------------------------------------------------------------------------------------------------------------------------
+  //  returns HTTP POST data from HTTP request and sanitizes every string field
+
+  getpostdata: (req, callback, sanitize = true) => {
     var postdata = [];
     req.on('data', chunk => {
       postdata.push(chunk);
@@ -92,6 +110,7 @@ const self = module.exports = {
       } catch (error) {
         stuff = { error: error };
       } finally {
+        if (sanitize) self.sanitizeJSON(stuff, '');
         callback(stuff);
       }
     });
@@ -294,6 +313,48 @@ const self = module.exports = {
   checkEmail(input) {
     var regex = /^[A-Z0-9_'%=+!`#~$*?^{}&|-]+([\.][A-Z0-9_'%=+!`#~$*?^{}&|-]+)*@[A-Z0-9-]+(\.[A-Z0-9-]+)+$/i;
     return input.match(regex) != null;
+  },
+
+  //  ---------------------------------------------------------------------------------------------------------------------------------------  
+  //  checkDateParam() checks whether a string is a valid date as in 'YYYYMMDD'
+
+  checkDateParam(input) {
+
+    if (input.length != 8 || isNaN(input)) return false;
+    if (Number(input.substr(4, 2)) < 1 || Number(input.substr(4, 2)) > 12) return false;
+
+    if (Number(input.substr(6, 2)) < 0 || Number(input.substr(6, 2)) > 31) return false;
+    if ((Number(input.substr(4, 2)) == 4 || Number(input.substr(4, 2)) == 6 || Number(input.substr(4, 2)) == 9 || Number(input.substr(4, 2)) == 11) && Number(input.substr(6, 2)) > 30) return false;
+    if (Number(input.substr(4, 2)) == 2 && Number(input.substr(0, 4)) % 4 == 0 && Number(input.substr(6, 2)) > 29) return false;
+    if (Number(input.substr(4, 2)) == 2 && Number(input.substr(0, 4)) % 4 != 0 && Number(input.substr(6, 2)) > 28) return false;
+
+    try {
+      var temp = new Date();
+      temp.setFullYear(Number(input.substr(0, 4)));
+      temp.setMonth(Number(input.substr(4, 2)) - 1);
+      temp.setDate(Number(input.substr(6, 2)));
+    } catch (e) {
+      res.json({ result: 'error', message: 'Invalid start date: ' + input });
+      return false;
+    }
+
+    return temp;
+  },
+
+  //  ---------------------------------------------------------------------------------------------------------------------------------------  
+  //  getHTMLSearchRegExp() generates a RegExp to search a string in a HTML document ignoring tags
+
+  getHTMLSearchRegExp(input) {
+    
+    var words = (_.trim(input).split(/\s/gm));
+    for (let t in words)
+      if (words[t] == '') words.splice(t, 1);
+
+    var rx = '';
+    words.forEach(e => {
+      rx += '(' + e + ')((?:\\s*(?:<\/?\\w[^<>]*>)?\\s*)*)';
+    });
+    return new RegExp(rx, 'igm');
   }
 
   //  ---------------------------------------------------------------------------------------------------------------------------------------  
