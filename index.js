@@ -24,19 +24,40 @@ sanitizeHTML = require('sanitize-html');
 
 general = require('./modules/general.js');
 recaptcha = require('./modules/recaptcha.js');
+iplocation = require('./modules/iplocation.js');
+addresser = require('./modules/addresser.js');
+
+dbClient = null;    //  global database client
 
 //  --------------------------------------[ LOAD SETTINGS ]--------------------------------------
 
 try {
-  global.settings = JSON.parse(fs.readFileSync('settings.json', 'utf8'));
+  global.settings = JSON.parse(fs.readFileSync('./assets/json/settings.json', 'utf8'));
 } catch (err) {
-  general.log('Can\'t load settings.json.');
+  general.log('Can\'t load settings.json: ' + err.message);
+  process.exit();
+}
+
+process.env.TZ = settings.general.timezone;
+
+try {
+  //  global.values = JSON.parse(fs.readFileSync('./assets/json/values.json', 'utf8'));
+  global.values = JSON.parse(fs.readFileSync('./values3.json', 'utf8'));
+} catch (err) {
+  general.log('Can\'t load values.json: ' + err.message);
+  process.exit();
+}
+
+try {
+  global.addressformats = JSON.parse(fs.readFileSync('./assets/json/addressformats.json', 'utf8'));
+} catch (err) {
+  general.log('Can\'t load addressforms.json: ' + err.message);
   process.exit();
 }
 
 //  --------------------------------------[ NODEMAILER SETUP ]--------------------------------------
 
-//  load e-mail html template
+//  load html e-mail templates
 
 global.email_html_template = '';
 
@@ -47,7 +68,7 @@ fs.readFile('./assets/email/email.template.html', (err, data) => {
     email_html_template = data.toString();
 });
 
-//  load e-mail plain text template
+//  load plain text e-mail templates
 
 global.email_text_template = '';
 fs.readFile('./assets/email/email.template.txt', (err, data) => {
@@ -83,26 +104,6 @@ app.use((req, res, next) => {
   next();
 });
 
-//  --------------------------------------[ SSL INIT ]--------------------------------------
-
-ssl = require(__dirname + '/ssl/ssl.js');
-myssl = ssl.create({
-  ssl: {
-    key: __dirname + settings.ssl.key,
-    certificate: __dirname + settings.ssl.certificate,
-    active: settings.ssl.active
-  },
-  port: settings.ssl.port
-},
-  app);
-
-//  ------------------------[ MONGODB INIT ] ------------------------
-
-general.MongoDB_connect(settings.mongoDB, db => {
-  general.log('Connected to MongoDB.');
-  db.close();
-});
-
 //  ------------------------[ SESSION INIT ] ------------------------
 
 app.use(session({
@@ -112,21 +113,77 @@ app.use(session({
   activeDuration: settings.session.activeDuration
 }));
 
+//  ------------------------[ MONGODB INIT ] ------------------------
+
+var url = 'mongodb://' + settings.mongoDB.username + ':' + settings.mongoDB.password + '@' + settings.mongoDB.url + ':' + String(settings.mongoDB.port) + '/' + settings.mongoDB.db;
+mongodb.connect(url, (err, client) => {
+
+  if (err) {
+    self.log('MongoDB connection error ' + err.code + ': ' + err.message);
+    process.exit();
+  }
+
+  dbClient = client;
+  general.log(`MongoDB client connected to ${dbClient.s.url}`);
+
+  //  ------------------------[ LISTENING STARTS ]-------------------
+
+  ssl = require(__dirname + '/ssl/ssl.js');
+  myssl = ssl.create({
+    ssl: {
+      key: __dirname + settings.ssl.key,
+      certificate: __dirname + settings.ssl.certificate,
+      active: settings.ssl.active
+    },
+    port: settings.ssl.port
+  },
+    app);
+
+});
+
 //  ------------------------[ ROOT ] ------------------------
 
 app.get('/', (req, res) => {
-  res.json({
-    result: 'success', data: {
-      'about': settings.about,
-      'ssl': settings.ssl.active
-    }
-  });
+  res.json({ result: 'success', data: { 'about': settings.general.about, 'ssl': settings.ssl.active } });
 });
+
+
+//  ------------------------[ CLEANUP ROUTINE ON EXIT ] ------------------------
+
+
+const exitHandler = (err = null) => {
+  if (dbClient && typeof dbClient.close == 'function') {
+    dbClient.close();
+    general.log('MongoDB connection terminated.');
+  }
+
+  if (err)
+    general.log('UNHANDLED EXCEPTION: '+err); 
+
+  process.removeAllListeners('exit');
+  let appStarted = new Date();
+  appStarted.setTime(new Date().getTime() - Math.floor(process.uptime()));
+  general.log(`Application terminated after ${ general.since(appStarted) } of uptime.`);
+
+  process.exit();
+}
+
+process.stdin.resume();
+//process.on('exit', exitHandler.bind());
+
+process.on('exit', () => exitHandler());
+process.on('SIGTERM', () => exitHandler());
+process.on('SIGINT', () => exitHandler());
+process.on('SIGUSR1', () => exitHandler());
+process.on('SIGUSR2', () => exitHandler());
+process.on('uncaughtException', err => { exitHandler(err) });
+
 
 //  ------------------------[ REQUIRE MODULES ] ------------------------
 
 require('./inc.interfaces');
 require('./inc.settings');
 require('./inc.users');
+require('./inc.address');
 require('./inc.messages');
 require('./inc.development');

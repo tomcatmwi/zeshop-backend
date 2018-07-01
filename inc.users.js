@@ -5,87 +5,95 @@ app.post('/login', (req, res) => {
     general.getpostdata(req, (postdata) => {
         general.log('Login attempt. Username: ' + postdata.username, req);
 
+        if (postdata.nomd5)
+            postdata.password = md5.md5(postdata.password);
+
         new Promise((resolve, reject) => {
 
             //  verify captcha
-        if (settings.recaptcha.active) {
-        
-            recaptcha.checkrecaptcha(postdata.captcha, req)
-            .then((result) => {
+            if (settings.recaptcha.active) {
+                recaptcha.checkrecaptcha(postdata.captcha, req)
+                    .then((result) => {
+                        resolve();
+                    }).catch((error) => {
+                        reject('Invalid captcha: ' + error['error-codes'][0]);
+                    });
+
+            } else
                 resolve();
-            }).catch((error) => {
-                reject('Invalid captcha: ' + error['error-codes'][0]);
-            });
-        
-        } else
-            resolve();
 
         }).then(result => {
 
-            general.MongoDB_connect(settings.mongoDB, db => {
 
-                if (postdata.nomd5)
-                    postdata.password = md5.md5(postdata.password);
+            //  verify the login
 
-                //  verify the login
-
-                db.collection('users').aggregate([
+            dbClient.db(settings.mongoDB.db).collection('users').aggregate([
+                {
+                    $match:
                     {
-                        $match:
-                            {
-                                $and: [
-                                    { username: postdata.username },
-                                    { password: postdata.password },
-                                    { level: { $gte: 1 } }
-                                ]
-                            }
-                    },
-
-                    {
-                        $project: {
-                            '_id': 1,
-                            'email': 1,
-                            'level': 1,
-                            'registered': 1,
-                            'name': {
-                                $cond: {
-                                    if: { $eq: ['$middlename', ''] },
-                                    then: { $concat: ['$title', ' ', '$firstname', ' ', '$lastname'] },
-                                    else: { $concat: ['$title', ' ', '$firstname', ' ', '$middlename', ' ', '$lastname'] }
-                                }
-                            }
-                        },
+                        $and: [
+                            { username: postdata.username },
+                            { password: postdata.password },
+                            { level: { $gte: 1 } }
+                        ]
                     }
+                },
 
-                ],
-
-                    { collation: settings.mongoDB.collation },
-                    (err, docs) => {
-                        db.close();
-
-                        if (!err && docs.length > 0) {
-
-                            //  if user is unconfirmed, no login
-                            if (docs[0].level == 0) {
-                                general.log('Unconfirmed user attempted to log in: ' + docs[0].name, req);
-                                res.json({ result: 'error', message: 'Your registration has not been confirmed yet. Please click the confirmation link in the e-mail we sent.' });
-                                return false;
+                {
+                    $project: {
+                        '_id': 1,
+                        'email': 1,
+                        'level': 1,
+                        'registered': 1,
+                        'address.country': 1,
+                        'name': {
+                            $cond: {
+                                if: { $eq: ['$middlename', ''] },
+                                then: { $concat: ['$title', ' ', '$firstname', ' ', '$lastname'] },
+                                else: { $concat: ['$title', ' ', '$firstname', ' ', '$middlename', ' ', '$lastname'] }
                             }
+                        }
+                    },
+                }
 
-                            //  save user to session
-                            req.session.user = docs[0]._id;
-                            req.session.name = docs[0].name;
-                            req.session.email = docs[0].email;
-                            req.session.level = docs[0].level;
+            ],
 
-                            general.log('Successful login: ' + docs[0].name, req);
-                            res.json({ result: 'success', message: 'Login successful.', data: docs[0] });
-                        } else {
-                            general.log('Unsuccessful login: ' + postdata.username, req);
-                            res.json({ result: 'error', message: 'Invalid credentials.' });
+                { collation: settings.mongoDB.collation },
+                { cursor: { batchSize: 1 } }
+            ).toArray((err, docs) => {
+                if (!err) {
+
+                    if (docs.length == 1) {
+
+                        //  if user is unconfirmed, no login
+                        if (docs[0].level == 0) {
+                            general.log('Unconfirmed user attempted to log in: ' + docs[0].name, req);
+                            res.json({ result: 'error', message: 'Your registration has not been confirmed yet. Please click the confirmation link in the e-mail we sent.' });
+                            return false;
                         }
 
-                    });
+                        //  save user to session
+                        req.session.user = docs[0]._id;
+                        req.session.name = docs[0].name;
+                        req.session.email = docs[0].email;
+                        req.session.level = docs[0].level;
+                        req.session.country = docs[0].address.country;
+
+                        general.log('Successful login: ' + docs[0].name, req);
+                        res.json({ result: 'success', message: 'Login successful.', data: docs[0] });
+                    } else {
+
+                        //  if user was not found
+                        //  or more than 1 was found with the same username and password...
+
+                        general.log('Invalid credentials provided.', req);
+                        res.json({ result: 'error', message: 'Invalid credentials.' });
+
+                    }
+                } else {
+                    general.log('Login failed: ' + postdata.username, req);
+                    res.json({ result: 'error', message: err.message });
+                }
             });
 
         }).catch(error => {
@@ -122,7 +130,7 @@ app.get('/users/:id?', (req, res) => {
         req.params.id = req.session.user;
 
     if (req.params.id) {
-        finder = general.makeFinder(res, req.params.id, true);
+        finder = general.makeObjectId(res, req.params.id, true);
         if (!finder) return false;
         finder = { _id: finder };
 
@@ -186,83 +194,80 @@ app.get('/users/:id?', (req, res) => {
 
     //  projection
 
-    general.MongoDB_connect(settings.mongoDB, db => {
+    dbClient.db(settings.mongoDB.db).collection('users').aggregate([
+        {
+            $project: {
+                '_id': 1,
+                'title': 1,
+                'firstname': 1,
+                'middlename': 1,
+                'lastname': 1,
+                'email': 1,
+                'phone_country': 1,
+                'phone_district': 1,
+                'phone_number': 1,
+                'address_country': 1,
+                'address_state': 1,
+                'address_city': 1,
+                'address_zip': 1,
+                'address_1': 1,
+                'address_2': 1,
+                'address_apt': 1,
+                'address_instructions': 1,
+                'promotions': 1,
+                'level': 1,
+                'username': 1,
+                'password': 1,
+                'registered': 1,
 
-        db.collection('users').aggregate([
-            {
-                $project: {
-                    '_id': 1,
-                    'title': 1,
-                    'firstname': 1,
-                    'middlename': 1,
-                    'lastname': 1,
-                    'email': 1,
-                    'phone_country': 1,
-                    'phone_district': 1,
-                    'phone_number': 1,
-                    'address_country': 1,
-                    'address_state': 1,
-                    'address_city': 1,
-                    'address_zip': 1,
-                    'address_1': 1,
-                    'address_2': 1,
-                    'address_apt': 1,
-                    'address_instructions': 1,
-                    'promotions': 1,
-                    'level': 1,
-                    'username': 1,
-                    'password': 1,
-                    'registered': 1,
+                'levelName': {
+                    $switch: {
+                        branches: [
+                            { case: { "$eq": ["$level", -1] }, then: 'Banned' },
+                            { case: { "$eq": ["$level", 0] }, then: 'Pending' },
+                            { case: { "$eq": ["$level", 1] }, then: 'Regular' },
+                            { case: { "$eq": ["$level", 2] }, then: 'Administrator' },
+                            { case: { "$eq": ["$level", 3] }, then: 'God Emperor' }
+                        ],
+                        default: 'Unknown'
+                    }
+                },
 
-                    'levelName': {
-                        $switch: {
-                            branches: [
-                                { case: { "$eq": ["$level", -1] }, then: 'Banned' },
-                                { case: { "$eq": ["$level", 0] }, then: 'Pending' },
-                                { case: { "$eq": ["$level", 1] }, then: 'Regular' },
-                                { case: { "$eq": ["$level", 2] }, then: 'Administrator' },
-                                { case: { "$eq": ["$level", 3] }, then: 'God Emperor' }
-                            ],
-                            default: 'Unknown'
-                        }
-                    },
+                'name': {
+                    $cond: {
+                        if: { $eq: ['$middlename', ''] },
+                        then: { $concat: ['$lastname', ', ', '$firstname', ', ', '$title'] },
+                        else: { $concat: ['$lastname', ', ', '$middlename', ' ', '$firstname', ', ', '$title'] }
+                    }
+                },
 
-                    'name': {
-                        $cond: {
-                            if: { $eq: ['$middlename', ''] },
-                            then: { $concat: ['$lastname', ', ', '$firstname', ', ', '$title'] },
-                            else: { $concat: ['$lastname', ', ', '$middlename', ' ', '$firstname', ', ', '$title'] }
-                        }
-                    },
-
-                    'propername': {
-                        $cond: {
-                            if: { $eq: ['$middlename', ''] },
-                            then: { $concat: ['$title', ' ', '$firstname', ' ', '$lastname'] },
-                            else: { $concat: ['$title', ' ', '$firstname', ' ', '$middlename', ' ', '$lastname'] }
-                        }
+                'propername': {
+                    $cond: {
+                        if: { $eq: ['$middlename', ''] },
+                        then: { $concat: ['$title', ' ', '$firstname', ' ', '$lastname'] },
+                        else: { $concat: ['$title', ' ', '$firstname', ' ', '$middlename', ' ', '$lastname'] }
                     }
                 }
-            },
+            }
+        },
 
-            { $match: finder },
-            { $sort: sorter }
+        { $match: finder },
+        { $sort: sorter }
 
-        ],
-            { collation: settings.mongoDB.collation },
-            (err, docs) => {
-                db.close();
-                if (!err) {
-                    if (docs.length > 0)
-                        res.json({ result: 'success', data: docs })
-                    else if (req.params.id)
-                        res.json({ result: 'error', message: 'This user doesn\'t exist.' })
-                    else
-                        res.json({ result: 'error', message: 'No users found.' })
-                } else {
-                    res.json({ result: 'error', message: err.message });
-                }
-            });
+    ],
+        { collation: settings.mongoDB.collation },
+        { cursor: { batchSize: 1 } }
+    ).toArray((err, docs) => {
+        if (!err) {
+            if (docs.length > 0)
+                res.json({ result: 'success', data: docs })
+            else if (req.params.id)
+                res.json({ result: 'error', message: 'This user doesn\'t exist.' })
+            else
+                res.json({ result: 'error', message: 'No users found.' })
+        } else {
+            res.json({ result: 'error', message: err.message });
+        }
     });
 });
 
@@ -275,7 +280,7 @@ app.post('/users', (req, res) => {
 
         if (postdata.level != 0 && !general.checklogin(res, req, 2)) return false;
 
-        finder = general.makeFinder(res, postdata._id, false);
+        finder = general.makeObjectId(res, postdata._id, false);
 
         var update = postdata._id != 0;
         delete postdata._id;
@@ -312,143 +317,139 @@ app.post('/users', (req, res) => {
 
         //  do actual stuff!
 
-        general.MongoDB_connect(settings.mongoDB, db => {
 
-            let updateUser = new Promise((resolve, reject) => {
+        let updateUser = new Promise((resolve, reject) => {
 
-                if (update) {
+            if (update) {
 
-                    //  get user to be modified
-                    //  if it doesn't exist, exit
-                    //  check if current user has the right to modify this user
-                    //  user should be level > 1 or it should be his own record
+                //  get user to be modified
+                //  if it doesn't exist, exit
+                //  check if current user has the right to modify this user
+                //  user should be level > 1 or it should be his own record
 
-                    if (postdata._id != req.session.user && req.session.userLevel <= 1) {
-                        reject('You can\'t modify this user.');
-                    }
-
-                    if (postdata.passwordChanged)
-                        postdata.password = postdata.password_1;
-
-                    delete postdata.passwordChanged;
-                    delete postdata.password_1;
-                    delete postdata.password_2;
-
-                    db.collection('users').findOne(
-                        { _id: finder },
-                        { collation: settings.mongoDB.collation },
-                        (err, docs) => {
-                            if (err || !docs) {
-                                if (err)
-                                    reject(err.message)
-                                else
-                                    reject('This user doesn\'t exist.');
-                            } else
-                                resolve(docs);
-                        });
-
-                } else {
-
-                    //  if it's a new user...
-                    //  generate new ObjectID and set registration date to UTC
-
-                    finder = new ObjectId();
-                    postdata.registered = general.getUTCDate();
-                    postdata.level = 0;
-                    postdata.password = postdata.password_1;
-
-                    delete postdata.passwordChanged;
-                    delete postdata.password_1;
-                    delete postdata.password_2;
-
-                    //  check if the e-mail is already in use
-
-                    db.collection('users').findOne(
-                        { email: postdata.email },
-                        { collation: settings.mongoDB.collation },
-                        (err, docs) => {
-                            if (err)
-                                reject(err.message);
-                            else if (!docs)
-                                resolve(null)
-                            else
-                                reject('This e-mail address is already in use.');
-                        });
+                if (postdata._id != req.session.user && req.session.userLevel <= 1) {
+                    reject('You can\'t modify this user.');
                 }
 
-            }).then((user) => {
+                if (postdata.passwordChanged)
+                    postdata.password = postdata.password_1;
 
-                //  do actual update / add record
+                delete postdata.passwordChanged;
+                delete postdata.password_1;
+                delete postdata.password_2;
 
-                if (update)
-                    postdata = { $set: postdata }
-
-                db.collection('users').update(
+                dbClient.db(settings.mongoDB.db).collection('users').findOne(
                     { _id: finder },
-                    postdata,
-                    {
-                        upsert: true,
-                        collation: settings.mongoDB.collation
-                    },
-                    err => {
-                        db.close();
-                        if (!err) {
-                            res.json({ result: 'success', data: { id: finder } });
-                            if (update)
-                                general.log('User modified: ' + user._id + ' ' + user.title + ' ' + user.firstname + ' ' + user.lastname, req);
+                    { collation: settings.mongoDB.collation },
+                    (err, docs) => {
+                        if (err || !docs) {
+                            if (err)
+                                reject(err.message)
                             else
-                                general.log('New user added: ' + finder + ' ' + postdata.title + ' ' + postdata.firstname + ' ' + postdata.lastname, req);
-
-                            //  send confirmation e-mail
-
-                            if (user == null) {
-                                var html = '';
-                                var text = '';
-
-                                fs.readFile('./assets/email/email.registration.html', (err, data) => {
-                                    if (err) {
-                                        general.log('Unable to load registration confirmation e-mail HTML template!', req);
-                                        return false;
-                                    } else {
-                                        html = data.toString();
-                                        html = html.replace(/{{ url }}/g, settings.general.siteURL + '/confirmreg/' + finder);
-                                        html = html.replace(/{{ confirmCode }}/g, finder);
-                                        html = html.replace(/{{ name }}/g, postdata.title + ' ' + postdata.firstname + ' ' + postdata.lastname);
-                                        html = html.replace(/{{ email }}/g, postdata.email);
-                                        html = email_html_template.replace('{{ body }}', html);
-
-                                        fs.readFile('./assets/email/email.registration.txt', (err, data) => {
-                                            if (err) {
-                                                general.log('Unable to load registration confirmation plain text template!', req);
-                                                return false;
-                                            } else {
-                                                text = data.toString();
-                                                text = text.replace(/{{ url }}/g, settings.general.siteURL + '/confirmreg/' + finder);
-                                                text = text.replace(/{{ confirmCode }}/g, finder);
-                                                text = text.replace(/{{ name }}/g, postdata.title + ' ' + postdata.firstname + ' ' + postdata.lastname);
-                                                text = text.replace(/{{ email }}/g, postdata.email);
-                                                text = email_text_template.replace('{{ body }}', text);
-
-                                                general.sendMail(postdata.email, 'Please confirm your registration', text, html);
-                                            }
-                                        });
-                                    }
-                                });
-                            }
-
-                        } else {
-                            general.log('Create/modify user failed: ' + err.message, req);
-                            res.json({ result: 'error', message: err.message });
-                        }
+                                reject('This user doesn\'t exist.');
+                        } else
+                            resolve(docs);
                     });
 
-            }).catch((error) => {
-                general.log('Create/modify user failed: ' + error, req);
-                res.json({ result: 'error', message: error });
-            });
+            } else {
 
+                //  if it's a new user...
+                //  generate new ObjectID and set registration date to UTC
 
+                finder = new ObjectId();
+                postdata.registered = general.getUTCDate();
+                postdata.level = 0;
+                postdata.password = postdata.password_1;
+
+                delete postdata.passwordChanged;
+                delete postdata.password_1;
+                delete postdata.password_2;
+
+                //  check if the e-mail is already in use
+
+                dbClient.db(settings.mongoDB.db).collection('users').findOne(
+                    { email: postdata.email },
+                    { collation: settings.mongoDB.collation },
+                    (err, docs) => {
+                        if (err)
+                            reject(err.message);
+                        else if (!docs)
+                            resolve(null)
+                        else
+                            reject('This e-mail address is already in use.');
+                    });
+            }
+
+        }).then((user) => {
+
+            //  do actual update / add record
+
+            if (update)
+                postdata = { $set: postdata }
+
+            dbClient.db(settings.mongoDB.db).collection('users').update(
+                { _id: finder },
+                postdata,
+                {
+                    upsert: true,
+                    collation: settings.mongoDB.collation
+                },
+                err => {
+                    if (!err) {
+                        res.json({ result: 'success', data: { id: finder } });
+                        if (update)
+                            general.log('User modified: ' + user._id + ' ' + user.title + ' ' + user.firstname + ' ' + user.lastname, req);
+                        else
+                            general.log('New user added: ' + finder + ' ' + postdata.title + ' ' + postdata.firstname + ' ' + postdata.lastname, req);
+
+                        //  send confirmation e-mail
+
+                        if (user == null) {
+                            var html = '';
+                            var text = '';
+
+                            fs.readFile('./assets/email/email.registration.html', (err, data) => {
+                                if (err) {
+                                    general.log('Unable to load registration confirmation e-mail HTML template!', req);
+                                    return false;
+                                } else {
+                                    html = data.toString();
+                                    html = html.replace(/{{ url }}/g, settings.general.siteURL + '/confirmreg/' + finder);
+                                    html = html.replace(/{{ confirmCode }}/g, finder);
+                                    html = html.replace(/{{ name }}/g, postdata.title + ' ' + postdata.firstname + ' ' + postdata.lastname);
+                                    html = html.replace(/{{ email }}/g, postdata.email);
+                                    html = email_html_template.replace('{{ body }}', html);
+
+                                    fs.readFile('./assets/email/email.registration.txt', (err, data) => {
+                                        if (err) {
+                                            general.log('Unable to load registration confirmation plain text template!', req);
+                                            return false;
+                                        } else {
+                                            text = data.toString();
+                                            text = text.replace(/{{ url }}/g, settings.general.siteURL + '/confirmreg/' + finder);
+                                            text = text.replace(/{{ confirmCode }}/g, finder);
+                                            text = text.replace(/{{ name }}/g, postdata.title + ' ' + postdata.firstname + ' ' + postdata.lastname);
+                                            text = text.replace(/{{ email }}/g, postdata.email);
+                                            text = email_text_template.replace('{{ body }}', text);
+
+                                            general.sendMail(postdata.email, 'Please confirm your registration', text, html);
+                                        }
+                                    });
+                                }
+                            });
+                        }
+
+                    } else {
+                        general.log('Create/modify user failed: ' + err.message, req);
+                        res.json({ result: 'error', message: err.message });
+                    }
+                });
+
+        }).catch((error) => {
+            general.log('Create/modify user failed: ' + error, req);
+            res.json({ result: 'error', message: error });
         });
+
     });
 });
 
@@ -462,48 +463,43 @@ app.get('/confirmuser/:id?', (req, res) => {
         return false;
     }
 
-    finder = general.makeFinder(res, id, true);
+    finder = general.makeObjectId(res, id, true);
     if (!finder) return false;
 
-    general.MongoDB_connect(settings.mongoDB, db => {
+    dbClient.db(settings.mongoDB.db).collection('users').findOne(
+        { _id: finder },
+        { collation: settings.mongoDB.collation },
+        (err, docs) => {
+            if (!err) {
+                if (!docs)
+                    res.json({ result: 'error', message: 'This user is not registered.' })
+                else if (docs.level > 0)
+                    res.json({ result: 'error', message: 'This user is already confirmed.' })
+                else
+                    doUpdate(docs);
+            } else {
+                res.json({ result: 'error', message: 'Invalid confirmation code.' });
+            }
+        });
 
-        db.collection('users').findOne(
-            { _id: finder },
-            { collation: settings.mongoDB.collation },
+    doUpdate = (user) => {
+        dbClient.db(settings.mongoDB.db).collection('users').findOneAndUpdate(
+            { _id: finder, level: 0 },
+            { $set: { level: 1 } },
+            {
+                upsert: false,
+                collation: settings.mongoDB.collation
+            },
             (err, docs) => {
                 if (!err) {
-                    if (!docs)
-                        res.json({ result: 'error', message: 'This user is not registered.' })
-                    else if (docs.level > 0)
-                        res.json({ result: 'error', message: 'This user is already confirmed.' })
-                    else
-                        doUpdate(docs);
+                    general.log('User confirmed: ' + user.name, req);
+                    res.json({ result: 'success' });
                 } else {
-                    res.json({ result: 'error', message: 'Invalid confirmation code.' });
+                    general.log('User update failed: ' + user.name, req);
+                    res.json({ result: 'error', message: err.message });
                 }
             });
-
-        doUpdate = (user) => {
-            db.collection('users').findOneAndUpdate(
-                { _id: finder, level: 0 },
-                { $set: { level: 1 } },
-                {
-                    upsert: false,
-                    collation: settings.mongoDB.collation
-                },
-                (err, docs) => {
-                    db.close();
-                    if (!err) {
-                        general.log('User confirmed: ' + user.name, req);
-                        res.json({ result: 'success' });
-                    } else {
-                        general.log('User update failed: ' + user.name, req);
-                        res.json({ result: 'error', message: err.message });
-                    }
-                });
-        }
-
-    });
+    }
 
 });
 
@@ -516,85 +512,81 @@ app.post('/forgotpsw', (req, res) => {
         var regex = /^[A-Z0-9_'%=+!`#~$*?^{}&|-]+([\.][A-Z0-9_'%=+!`#~$*?^{}&|-]+)*@[A-Z0-9-]+(\.[A-Z0-9-]+)+$/i;
         if (!postdata.email || !regex.test(postdata.email)) { res.json({ result: 'error', message: 'Invalid e-mail address.' }); return false; }
 
-        general.MongoDB_connect(settings.mongoDB, db => {
+        dbClient.db(settings.mongoDB.db).collection('users').findOne(
+            { email: postdata.email },
+            { collation: settings.mongoDB.collation },
+            (err, docs) => {
+                if (!err) {
+                    if (!docs)
+                        res.json({ result: 'error', message: 'This e-mail address is not in our database.' })
+                    else
+                        sendReminder(docs);
+                } else {
+                    res.json({ result: 'error', message: 'Invalid e-mail address.' });
+                }
+            });
 
-            db.collection('users').findOne(
-                { email: postdata.email },
+        sendReminder = (user) => {
+
+            //  set reset code
+
+            var resetcode = general.randomString();
+
+            dbClient.db(settings.mongoDB.db).collection('users').update(
+                { email: user.email },
+                { $set: { resetcode: resetcode } },
                 { collation: settings.mongoDB.collation },
                 (err, docs) => {
                     if (!err) {
-                        if (!docs)
-                            res.json({ result: 'error', message: 'This e-mail address is not in our database.' })
-                        else
-                            sendReminder(docs);
+
+                        //  ----------------------------------------------------------------------------------------                                
+                        // send password reset e-mail
+
+                        var html = '';
+                        var text = '';
+
+                        fs.readFile('./assets/email/email.forgotpsw.html', (err, data) => {
+                            if (err) {
+                                general.log('Unable to load registration confirmation e-mail HTML template!', req);
+                                return false;
+                            } else {
+                                html = data.toString();
+                                html = html.replace(/{{ url }}/g, settings.general.siteURL + '/resetpsw/' + resetcode);
+                                html = html.replace(/{{ resetcode }}/g, resetcode);
+                                html = html.replace(/{{ name }}/g, user.name);
+                                html = html.replace(/{{ username }}/g, user.username);
+                                html = html.replace(/{{ email }}/g, user.email);
+                                html = email_html_template.replace('{{ body }}', html);
+
+                                fs.readFile('./assets/email/email.forgotpsw.txt', (err, data) => {
+                                    if (err) {
+                                        general.log('Unable to load registration confirmation plain text template!', req);
+                                        return false;
+                                    } else {
+                                        text = data.toString();
+                                        text = text.replace(/{{ url }}/g, settings.general.siteURL + '/resetpsw/' + resetcode);
+                                        text = text.replace(/{{ resetcode }}/g, resetcode);
+                                        text = text.replace(/{{ name }}/g, user.name);
+                                        text = text.replace(/{{ username }}/g, user.username);
+                                        text = text.replace(/{{ email }}/g, user.email);
+                                        text = email_text_template.replace('{{ body }}', text);
+
+                                        general.sendMail(user.email, 'Please reset your password', text, html);
+                                        res.json({ result: 'success' });
+                                    }
+                                });
+                            }
+                        });
+
+                        //  ----------------------------------------------------------------------------------------
+
                     } else {
-                        res.json({ result: 'error', message: 'Invalid e-mail address.' });
+                        res.json({ result: 'error', message: 'Couldn\'t reset password.' });
                     }
                 });
 
-            sendReminder = (user) => {
 
-                //  set reset code
-
-                var resetcode = general.randomString();
-
-                db.collection('users').update(
-                    { email: user.email },
-                    { $set: { resetcode: resetcode } },
-                    { collation: settings.mongoDB.collation },
-                    (err, docs) => {
-                        if (!err) {
-
-                            //  ----------------------------------------------------------------------------------------                                
-                            // send password reset e-mail
-
-                            var html = '';
-                            var text = '';
-
-                            fs.readFile('./assets/email/email.forgotpsw.html', (err, data) => {
-                                if (err) {
-                                    general.log('Unable to load registration confirmation e-mail HTML template!', req);
-                                    return false;
-                                } else {
-                                    html = data.toString();
-                                    html = html.replace(/{{ url }}/g, settings.general.siteURL + '/resetpsw/' + resetcode);
-                                    html = html.replace(/{{ resetcode }}/g, resetcode);
-                                    html = html.replace(/{{ name }}/g, user.name);
-                                    html = html.replace(/{{ username }}/g, user.username);
-                                    html = html.replace(/{{ email }}/g, user.email);
-                                    html = email_html_template.replace('{{ body }}', html);
-
-                                    fs.readFile('./assets/email/email.forgotpsw.txt', (err, data) => {
-                                        if (err) {
-                                            general.log('Unable to load registration confirmation plain text template!', req);
-                                            return false;
-                                        } else {
-                                            text = data.toString();
-                                            text = text.replace(/{{ url }}/g, settings.general.siteURL + '/resetpsw/' + resetcode);
-                                            text = text.replace(/{{ resetcode }}/g, resetcode);
-                                            text = text.replace(/{{ name }}/g, user.name);
-                                            text = text.replace(/{{ username }}/g, user.username);
-                                            text = text.replace(/{{ email }}/g, user.email);
-                                            text = email_text_template.replace('{{ body }}', text);
-
-                                            general.sendMail(user.email, 'Please reset your password', text, html);
-                                            res.json({ result: 'success' });
-                                        }
-                                    });
-                                }
-                            });
-
-                            //  ----------------------------------------------------------------------------------------
-
-                        } else {
-                            res.json({ result: 'error', message: 'Couldn\'t reset password.' });
-                        }
-                    });
-
-
-            }
-
-        });
+        }
 
     });
 });
@@ -609,41 +601,38 @@ app.post('/resetpsw', (req, res) => {
         if (postdata.password_1 != postdata.password_2) { res.json({ result: 'error', message: 'The passwords don\'t match.' }); return false; }
         if (postdata.password_1.length < 8) { res.json({ result: 'error', message: 'The password must be at least 8 characters long.' }); return false; }
 
-        general.MongoDB_connect(settings.mongoDB, db => {
+        //  set the new password
+        dbClient.db(settings.mongoDB.db).collection('users').findOneAndUpdate(
+            { resetcode: postdata.resetcode },
+            { $set: { password: postdata.password_1 } },
+            { collation: settings.mongoDB.collation },
+            (err, docs) => {
+                if (!err) {
+                    if (docs.value == null)
+                        res.json({ result: 'error', message: 'This password reset code is not in our database.' })
+                    else
+                        unset(docs.value);
+                } else {
+                    res.json({ result: 'error', message: 'Invalid password reset code.' });
+                }
+            });
 
-            //  set the new password
-            db.collection('users').findOneAndUpdate(
+        //  $set and $unset can't happen in the same query, so here we go
+        unset = (user) => {
+
+            dbClient.db(settings.mongoDB.db).collection('users').update(
                 { resetcode: postdata.resetcode },
-                { $set: { password: postdata.password_1 } },
+                { $unset: { resetcode: null } },
                 { collation: settings.mongoDB.collation },
-                (err, docs) => {
+                err => {
                     if (!err) {
-                        if (docs.value == null)
-                            res.json({ result: 'error', message: 'This password reset code is not in our database.' })
-                        else
-                            unset(docs.value);
-                    } else {
+                        general.log('Password reset for user ' + user.name, req)
+                        res.json({ result: 'success' });
+                    } else
                         res.json({ result: 'error', message: 'Invalid password reset code.' });
-                    }
                 });
 
-            //  $set and $unset can't happen in the same query, so here we go
-            unset = (user) => {
-
-                db.collection('users').update(
-                    { resetcode: postdata.resetcode },
-                    { $unset: { resetcode: null } },
-                    { collation: settings.mongoDB.collation },
-                    err => {
-                        if (!err) {
-                            general.log('Password reset for user ' + user.name, req)
-                            res.json({ result: 'success' });
-                        } else
-                            res.json({ result: 'error', message: 'Invalid password reset code.' });
-                    });
-
-            }
-        });
+        }
     });
 });
 
@@ -652,7 +641,7 @@ app.post('/resetpsw', (req, res) => {
 app.delete('/users/:id?', (req, res) => {
 
     if (!general.checklogin(res, req)) return false;
-    finder = general.makeFinder(res, req.params.id, true);
+    finder = general.makeObjectId(res, req.params.id, true);
     if (!finder) return false;
 
     if (req.session.level <= 1) {
@@ -665,34 +654,31 @@ app.delete('/users/:id?', (req, res) => {
         return false;
     }
 
-    general.MongoDB_connect(settings.mongoDB, db => {
+    //  delete the user's records
 
-        //  delete the user's records
+    dbClient.db(settings.mongoDB.db).collection('records').remove(
+        { user: finder },
+        { collation: settings.mongoDB.collation },
+        (err, docs) => {
+            //  to be implemented!
+        });
 
-        db.collection('records').remove(
-            { user: finder },
-            { collation: settings.mongoDB.collation },
-            (err, docs) => {
-                db.close();
-            });
+    //  delete user
 
-        //  delete user
+    dbClient.db(settings.mongoDB.db).collection('users').findOneAndDelete(
+        { _id: finder },
+        { collation: settings.mongoDB.collation },
 
-        db.collection('users').findOneAndDelete(
-            { _id: finder },
-            { collation: settings.mongoDB.collation },
+        (err, docs) => {
+            if (!err) {
+                if (docs.value) {
+                    general.log('User deleted: ' + docs.value._id + ' ' + docs.value.title + ' ' + docs.value.firstname + ' ' + docs.value.lastname, req)
+                    res.json({ result: 'success' });
+                } else
+                    res.json({ result: 'error', message: 'User not found.' });
+            } else {
+                res.json({ result: 'error', message: err.message });
+            }
+        });
 
-            (err, docs) => {
-                db.close();
-                if (!err) {
-                    if (docs.value) {
-                        general.log('User deleted: ' + docs.value._id + ' ' + docs.value.title + ' ' + docs.value.firstname + ' ' + docs.value.lastname, req)
-                        res.json({ result: 'success' });
-                    } else
-                        res.json({ result: 'error', message: 'User not found.' });
-                } else {
-                    res.json({ result: 'error', message: err.message });
-                }
-            });
-    });
 });

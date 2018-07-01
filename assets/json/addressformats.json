@@ -1,0 +1,248 @@
+{
+    "generic": {
+        "nameOrder": [
+            "title",
+            "firstname",
+            "middlename",
+            "lastname"
+        ],
+        "fields": [
+            {
+                "fieldname": "name",
+                "capitalize": true,
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "organization",
+                "capitalize": false,
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "address1",
+                "capitalize": false,
+                "trail": "\n",
+                "mandatory": true
+            },
+            {
+                "fieldname": "address2",
+                "capitalize": false,
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "address3",
+                "capitalize": false,
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "postalcode",
+                "capitalize": true,
+                "trail": " ",
+                "mandatory": true
+            },
+            {
+                "fieldname": "locality",
+                "capitalize": false,
+                "trail": "\n",
+                "mandatory": true
+            },
+            {
+                "fieldname": "region.name",
+                "capitalize": true,
+                "trail": "\n",
+                "mandatory": true
+            },
+            {
+                "fieldname": "country",
+                "capitalize": true,
+                "trail": "\n",
+                "mandatory": false
+            }
+        ]
+    },
+    "french": {
+
+    },
+    "british": {
+
+    },
+    "african": {
+
+    },
+    "RU": {
+        "nameOrder": [
+            "firstname",
+            "middlename",
+            "lastname"
+        ],
+        "fields": [
+            {
+                "fieldname": "name",
+                "capitalize": false,
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "organization",
+                "capitalize": false,
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "address1",
+                "capitalize": false,
+                "trail": "\n",
+                "mandatory": true
+            },
+            {
+                "fieldname": "address2",
+                "capitalize": false,
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "apartment",
+                "capitalize": false,
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "locality",
+                "capitalize": false,
+                "trail": "\n",
+                "mandatory": true
+            },
+            {
+                "fieldname": "region.name",
+                "capitalize": true,
+                "trail": "\n",
+                "mandatory": true
+            },
+            {
+                "fieldname": "country",
+                "capitalize": true,
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "postalcode",
+                "capitalize": true,
+                "mandatory": true
+            }
+        ]
+    },
+    "CA": {
+        "nameOrder": [
+            "title",
+            "firstname",
+            "middlename",
+            "lastname"
+        ],
+        "fields": [
+            {
+                "fieldname": "name",
+                "capitalize": true,
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "organization",
+                "capitalize": true,
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "address1",
+                "capitalize": true,
+                "trail": "\n",
+                "mandatory": true
+            },
+            {
+                "fieldname": "address2",
+                "capitalize": true,
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "apartment",
+                "capitalize": true,
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "locality",
+                "capitalize": true,
+                "trail": " ",
+                "mandatory": true
+            },
+            {
+                "fieldname": "region.id",
+                "capitalize": true,
+                "trail": " ",
+                "mandatory": true
+            },
+            {
+                "fieldname": "postalcode",
+                "capitalize": true,
+                "trail": "\n",
+                "mandatory": true
+            },
+            {
+                "fieldname": "country",
+                "capitalize": true,
+                "mandatory": false
+            }
+        ]
+    },
+    "HU": {
+        "nameOrder": [
+            "lastname",
+            "firstname",
+            "middlename"
+        ],
+        "fields": [
+            {
+                "fieldname": "name",
+                "capitalize": true,
+                "trail": "\n",
+                "mandatory": true
+            },
+            {
+                "fieldname": "organization",
+                "capitalize": true,
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "locality",
+                "trail": "\n",
+                "mandatory": true
+            },
+            {
+                "fieldname": "address1",
+                "trail": "\n",
+                "mandatory": true
+            },
+            {
+                "fieldname": "address2",
+                "trail": "\n",
+                "mandatory": false
+            },
+            {
+                "fieldname": "postalcode",
+                "trail": "\n",
+                "mandatory": true
+            },
+            {
+                "fieldname": "country",
+                "capitalize": true
+            }
+        ]
+    },
+    "GH": {
+        "redirect": "african"
+    }
+}

@@ -5,12 +5,13 @@
                 "upload_size_limit": 209715200,
                 "allow_iplocation": true,
                 "language": "en-ca",
-                "developer_mode": false,
+                "timezone": "Canada/Eastern",
+                "developer_mode": true,
                 "login": false
         },
         "logging": {
-                "console": true,
                 "enabled": true,
+                "console": true,
                 "daily": true,
                 "location": "logs"
         },
@@ -45,7 +46,13 @@
                         "alternate": "shifted",
                         "maxVariable": "punct",
                         "backwards": false
+                },
+                "collectionOptions": {
+                        "capped": false,
+                        "validationLevel": "strict",
+                        "validationAction": "error"
                 }
+                
         },
         "nodemailer": {
                 "email_from": "\"Test Message\" <testmessage@testmessage.com>",
@@ -58,7 +65,7 @@
                 }
         },
         "recaptcha": {
-                "active": true,
+                "active": false,
                 "host": "www.google.com",
                 "path": "/recaptcha/api/siteverify",
                 "port": 443,

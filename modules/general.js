@@ -49,6 +49,36 @@ const self = module.exports = {
   },
 
   //  ---------------------------------------------------------------------------------------------------------------------------------------
+  //  Returns a string describing how much time has passed since the specified timestamp
+
+  since: (timestamp) => {
+    let seconds = new Date().getTime() - timestamp.getTime();
+
+    let result = '';
+
+    let stuff = [
+      { seconds: 31536000, string: 'years' },
+      { seconds: 2419200, string: 'months' },
+      { seconds: 604800, string: 'weeks' },
+      { seconds: 86400, string: 'days' },
+      { seconds: 3600, string: 'hours' },
+      { seconds: 60, string: 'minutes' },
+      { seconds: 1, string: 'seconds' },
+    ];
+
+    stuff.forEach(e => {
+      let temp = Math.floor(seconds / e.seconds);
+      if (temp > 0) {
+        if (result != '') result += ', ';
+        result += temp + ' ' + e.string;
+        seconds -= temp * e.seconds;
+      }
+    });
+
+    return result;
+  },
+
+  //  ---------------------------------------------------------------------------------------------------------------------------------------
   //  logs events to the console and/or file
 
   log: (msg, req = null) => {
@@ -72,7 +102,7 @@ const self = module.exports = {
       else
         logpath += 'zeshop.log';
 
-      fs.appendFile(logpath, line + os.EOL, null, 'utf8', (err) => {
+      fs.appendFile(logpath, line + os.EOL, (err) => {
         if (err)
           console.log(ts2log(date) + '| Unable to write file ' + logpath);
       });
@@ -80,14 +110,17 @@ const self = module.exports = {
   },
 
   //  ---------------------------------------------------------------------------------------------------------------------------------------
-  //  sanitizes all strings in a JSON object
+  //  sanitizes all strings in a JSON object using the sanitizeHTML module function
   //  property names specified in noSanitize will be ignored
+  //  obj: object, the JSON object to be sanitized
+  //  stack: string, 
+  //  noSanitize: array of strings, field names not to be sanitized
 
-  sanitizeJSON: (obj, stack, noSanitize = ['captcha']) => {
+  sanitizeJSON: (obj, stack = '', noSanitize = ['captcha']) => {
     for (let property in obj) {
       if (obj.hasOwnProperty(property)) {
         if (typeof obj[property] == 'object') {
-          iterate(obj[property], stack + '.' + property);
+          self.sanitizeJSON(obj[property], stack + '.' + property);
         } else if (typeof obj[property] === 'string' && noSanitize.indexOf(property) == -1) {
           obj[property] = _.trim(obj[property], ' \n');
           obj[property] = sanitizeHTML(obj[property], settings.sanitizeHTML);
@@ -108,7 +141,7 @@ const self = module.exports = {
       try {
         stuff = JSON.parse(decodeURIComponent(Buffer.concat(postdata).toString()));
       } catch (error) {
-        stuff = { error: error };
+        stuff = { error: JSON.stringify(error, null, 3) };
       } finally {
         if (sanitize) self.sanitizeJSON(stuff, '');
         callback(stuff);
@@ -177,50 +210,31 @@ const self = module.exports = {
     return str;
   },
 
-  //  ---------------------------------------------------------------------------------------------------------------------------------------
-  //  MongoDB connector
-  //  If you need the old method, replace this with the MongoDB_connect_old method!
-
-  MongoDB_connect: (mongoData, callback) => {
-
-    var url = 'mongodb://' +
-      mongoData.username + ':' +
-      mongoData.password + '@' +
-      mongoData.url + ':' +
-      String(mongoData.port) + '/' +
-      mongoData.db;
-
-    mongodb.connect(url, (err, db) => {
-
-      if (err) {
-        self.log('MongoDB error ' + err.code + ': ' + err.message);
-        process.exit();
-      }
-      return callback(db);
-
-    });
-  },
-
   //  ---------------------------------------------------------------------------------------------------------------------------------------  
-  //  makeFinder() creates an ObjectID of a given value,
-  //  a new one if it's empty or 0,
-  //  or an error message otherwise
+  //  makeObjectId() creates an ObjectID from a given id.
+  //  It generates a new one if id it's empty or 0,
+  //  or an error message otherwise, if allowFail is true.
 
-  makeFinder: (res, id, allowFail = true) => {
+  makeObjectId: (res, id, allowFail = true) => {
 
     if (id && id != '0') {
       try {
         var finder = new ObjectId(id);
         return finder;
       } catch (err) {
-        if (allowFail) res.json({ result: 'error', message: 'Invalid object ID.' });
+        if (allowFail) {
+          self.log('Attempted to generate invalid ObjectId: "' + id + '"');
+          res.json({ result: 'error', message: 'Invalid ObjectId.' });
+        }
         return false;
       }
-    } else if (!allowFail) return new ObjectId()
-    else {
-      res.json({ result: 'error', message: 'Invalid object ID.' });
-      return false;
-    }
+    } else
+      if (!allowFail) return new ObjectId()
+      else {
+        self.log('ObjectId generation error: "' + id + '" is not a valid id.');
+        res.json({ result: 'error', message: 'Invalid ObjectID.' });
+        return false;
+      }
   },
 
   //  ---------------------------------------------------------------------------------------------------------------------------------------  
@@ -345,7 +359,7 @@ const self = module.exports = {
   //  getHTMLSearchRegExp() generates a RegExp to search a string in a HTML document ignoring tags
 
   getHTMLSearchRegExp(input) {
-    
+
     var words = (_.trim(input).split(/\s/gm));
     for (let t in words)
       if (words[t] == '') words.splice(t, 1);

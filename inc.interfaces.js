@@ -5,17 +5,25 @@ templates = {
         "middlename": "",
         "lastname": "User",
         "email": "default@zeshop.com",
-        "phone_country": "1",
-        "phone_district": "416",
-        "phone_number": "1234567",
-        "address_country": "CA",
-        "address_state": "ON",
-        "address_city": "Toronto",
-        "address_zip": "A1A 1A1",
-        "address_1": "1 Unknown Street",
-        "address_2": "",
-        "address_apt": "0",
-        "address_instructions": "This is a placeholder address",
+        
+        "phone": {
+            "country": "CA",
+            "district": "416",
+            "number": "1234567"
+        },
+
+        "address": {
+            "country": "CA",
+            "region": "ON",
+            "locality": "Unknown City",
+            "postalcode": "A1A 1A1",
+            "address_1": "777 Unknown Street",
+            "address_2": "",
+            "address_3": "",
+            "apartment": ""
+        },
+
+        "delivery_instructions": "This is a placeholder address",
         "promotions": [],
         "level": 0,
         "username": "default",
@@ -31,25 +39,27 @@ templates = {
 
     "message": {
         "date": 1524225600,
-        "sender_id": null,
+        "user_id": null,
         "order_id": null,
         "folder_id": null,
         "replied": false,
         "name": "Unknown Sender",
         "email": "unknown@zeshop.com",
-        "phone_country": "CA",
-        "phone_district": "000",
-        "phone": "0000000",
+        "phone_country": "36",
+        "phone_district": "30",
+        "phone_number": "9356632",
         "subject": "No subject",
         "body": "",
-        "ip": "127.0.0.1"
+        "ip": "127.0.0.1",
+        "iplocation": null
     },
 
     "autoreply": {
         "subject": "",
         "body": "",
         "description": "",
-        "priority": 0
+        "priority": 0,
+        "token": ""
     }
 
 }

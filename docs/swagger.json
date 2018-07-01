@@ -1,0 +1,98 @@
+{
+  "swagger" : "2.0",
+  "info" : {
+    "description" : "The RESTful API of zeShop",
+    "version" : "1.0.0",
+    "title" : "zeShop",
+    "contact" : {
+      "email" : "tamas.polgar.pixeldog@gmail.com"
+    }
+  },
+  "host" : "virtserver.swaggerhub.com",
+  "basePath" : "/Pixeldog/zeShopBackend/1.0.0",
+  "tags" : [ {
+    "name" : "system",
+    "description" : "System functions"
+  }, {
+    "name" : "settings",
+    "description" : "Functions handling user-defined settings"
+  }, {
+    "name" : "user",
+    "description" : "User account functions"
+  }, {
+    "name" : "message",
+    "description" : "Message system functions"
+  }, {
+    "name" : "developer",
+    "description" : "Developer mode functions (disabled when live)"
+  } ],
+  "schemes" : [ "https" ],
+  "paths" : {
+    "/" : {
+      "get" : {
+        "tags" : [ "system" ],
+        "summary" : "Returns version information",
+        "produces" : [ "application/json" ],
+        "parameters" : [ ],
+        "responses" : {
+          "200" : {
+            "description" : "Successful operation",
+            "schema" : {
+              "type" : "object",
+              "properties" : { }
+            }
+          },
+          "400" : {
+            "description" : "Error",
+            "schema" : {
+              "type" : "object",
+              "properties" : { }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions" : {
+    "error" : {
+      "type" : "object",
+      "properties" : {
+        "result" : {
+          "type" : "string",
+          "example" : "error"
+        },
+        "message" : {
+          "type" : "string",
+          "example" : "Invalid operation. Please replace user.",
+          "description" : "Error message"
+        }
+      }
+    },
+    "about" : {
+      "type" : "object",
+      "properties" : {
+        "result" : {
+          "type" : "string"
+        },
+        "data" : {
+          "$ref" : "#/definitions/about_data"
+        }
+      }
+    },
+    "about_data" : {
+      "properties" : {
+        "about" : {
+          "type" : "string",
+          "example" : "zeShop 1.0 (C) Pixeldog 2018",
+          "description" : "API version information"
+        },
+        "ssl" : {
+          "type" : "boolean",
+          "example" : false,
+          "description" : "Whether SSL is active"
+        }
+      },
+      "description" : "Data field"
+    }
+  }
+}
