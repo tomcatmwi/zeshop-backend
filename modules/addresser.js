@@ -65,8 +65,6 @@ module.exports = {
         if (html)
             address = '<div class="address">'+address+'</p></div>';
 
-        console.log(address);
-
         return address;
 
     }

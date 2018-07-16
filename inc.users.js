@@ -79,6 +79,9 @@ app.post('/login', (req, res) => {
                         req.session.level = docs[0].level;
                         req.session.country = docs[0].address.country;
 
+                        //  update settings if needed!
+                        //  TO BE IMPLEMENTED!
+
                         general.log('Successful login: ' + docs[0].name, req);
                         res.json({ result: 'success', message: 'Login successful.', data: docs[0] });
                     } else {
@@ -192,8 +195,6 @@ app.get('/users/:id?', (req, res) => {
         case '4': sorter = { level: Number(req.query.sortMode) }; break;
     }
 
-    //  projection
-
     dbClient.db(settings.mongoDB.db).collection('users').aggregate([
         {
             $project: {
@@ -203,17 +204,18 @@ app.get('/users/:id?', (req, res) => {
                 'middlename': 1,
                 'lastname': 1,
                 'email': 1,
-                'phone_country': 1,
-                'phone_district': 1,
-                'phone_number': 1,
-                'address_country': 1,
-                'address_state': 1,
-                'address_city': 1,
-                'address_zip': 1,
-                'address_1': 1,
-                'address_2': 1,
-                'address_apt': 1,
-                'address_instructions': 1,
+                'phone.country': 1,
+                'phone.district': 1,
+                'phone.number': 1,
+                'address.country': 1,
+                'address.region': 1,
+                "address.locality": 1,
+                "address.postalcode": 1,
+                "address.address_1": 1,
+                "address.address_2": 1,
+                "address.address_3": 1,
+                "address.apartment": 1,
+                'delivery_instructions': 1,
                 'promotions': 1,
                 'level': 1,
                 'username': 1,
@@ -259,9 +261,19 @@ app.get('/users/:id?', (req, res) => {
         { cursor: { batchSize: 1 } }
     ).toArray((err, docs) => {
         if (!err) {
-            if (docs.length > 0)
-                res.json({ result: 'success', data: docs })
-            else if (req.params.id)
+            if (docs.length > 0) {
+
+                //  remove username / password if not admin or the user himself
+
+                let currentUser = general.makeObjectId(res, req.session.user, true);
+                for (let t in docs)
+                    if (req.session.level != 2 && currentUser != docs[t]._id) {
+                        delete docs[t].username;
+                        delete docs[t].password;
+                    }
+
+                res.json({ result: 'success', data: docs });
+            } else if (req.params.id)
                 res.json({ result: 'error', message: 'This user doesn\'t exist.' })
             else
                 res.json({ result: 'error', message: 'No users found.' })

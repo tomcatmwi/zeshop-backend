@@ -28,7 +28,19 @@ templates = {
         "level": 0,
         "username": "default",
         "password": "c21f969b5f03d33d43e04f8f136e7682",
-        "registered": 1524225600
+        "registered": 1524225600,
+        "settings": {
+            "admin": {
+                "pageSize": "Letter",
+                "labelRows": 6,
+                "labelCols": 2,
+                "addressFont": "Helvetica",
+                "addressFontSize": 12,
+                "whatever": 34
+            },
+            "frontend": {
+            }
+        }
     },
 
     "messageFolder": {

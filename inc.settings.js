@@ -3,8 +3,7 @@
 app.get('/settings/:id?', (req, res) => {
 
     if (!general.checklogin(res, req, 2)) return false;
-    var userid = general.makeObjectId(res, req.session.user, false);
-
+    var userid = general.makeObjectId(res, req.session.user, true);
 
     if (req.params.id) {
         finder = general.makeObjectId(res, req.params.id, false);
@@ -12,7 +11,7 @@ app.get('/settings/:id?', (req, res) => {
             finder = { token: req.params.id }
         else
             finder = { _id: finder }
-            finder.userid = userid;
+        finder.userid = userid;
 
         //  if id is specified, get that one setting
 
@@ -60,11 +59,12 @@ app.get('/settings/:id?', (req, res) => {
                     'name': 1,
                     'priority': 1
                 }
-            }
+            },
         ],
             { collation: settings.mongoDB.collation },
             { cursor: { batchSize: 1 } }).toArray(
                 (err, docs) => {
+                    console.log(JSON.stringify(docs, null, 3));
                     if (!err)
                         res.json({ result: 'success', data: docs });
                     else
@@ -96,9 +96,9 @@ app.post('/settings', (req, res) => {
             err => {
                 if (!err) {
                     if (postdata._id == 0)
-                        general.log('New setting added: ' + req.session.name+', ' + postdata.description, req)
+                        general.log('New setting added: ' + req.session.name + ', ' + postdata.description, req)
                     else
-                        general.log('Setting modified: ' + req.session.name+', '+postdata.description, req)
+                        general.log('Setting modified: ' + req.session.name + ', ' + postdata.description, req)
                     res.json({ result: 'success' });
                 } else {
                     res.json({ result: 'error', message: err.message });
